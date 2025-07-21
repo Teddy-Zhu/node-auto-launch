@@ -13,6 +13,8 @@ export default class AutoLaunch {
   //      :mac - (Optional) {Object}
   //          :useLaunchAgent - (Optional) {Boolean}. If `true`, use filed-based Launch Agent. Otherwise use AppleScript
   //           to add Login Item
+  //      :linux - (Optional) {Object}
+  //          :icon - (Optional) {String} Icon path or name for the desktop entry. Defaults to app name if not specified.
   //      :extraArgs - (Optional) {Array}
   constructor({ name, path, options }) {
     // Name is the only mandatory parameter and must neither be null nor empty
@@ -23,6 +25,7 @@ export default class AutoLaunch {
       options: {
         launchInBackground: (options && (options.launchInBackground != null)) ? options.launchInBackground : false,
         mac: (options && (options.mac != null)) ? options.mac : {},
+        linux: (options && (options.linux != null)) ? options.linux : {},
         extraArguments: (options && (options.extraArguments != null)) ? options.extraArgs : []
       }
     };

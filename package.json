@@ -1,6 +1,6 @@
 {
-  "name": "auto-launch",
-  "version": "6.0.0-rc.2",
+  "name": "@teddyzhu/auto-launch",
+  "version": "6.0.0-rc.3",
   "description": "Launch node applications or executables at login (Mac, Windows, Linux and FreeBSD)",
   "type": "module",
   "main": "./src/index.js",
@@ -20,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Teamwork/node-auto-launch"
+    "url": "https://github.com/Teddy-Zhu/node-auto-launch"
   },
   "keywords": [
     "login",
@@ -32,12 +32,13 @@
   ],
   "author": "Donal Linehan",
   "contributors": [
-    "Adam Lynch <adam@teamwork.com>"
+    "Adam Lynch <adam@teamwork.com>",
+    "Teddy Zhu <teddyzhu15@gmail.com>"
   ],
-  "homepage": "https://github.com/Teamwork/node-auto-launch",
+  "homepage": "https://github.com/Teddy-Zhu/node-auto-launch",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Teamwork/node-auto-launch/issues"
+    "url": "https://github.com/Teddy-Zhu/node-auto-launch/issues"
   },
   "devDependencies": {
     "@babel/core": "^7.23.6",

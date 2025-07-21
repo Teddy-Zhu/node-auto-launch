@@ -9,6 +9,8 @@ export default class AutoLaunchAPI {
   //      :mac - (Optional) {Object}
   //          :useLaunchAgent - (Optional) {Boolean} If `true`, use filed-based Launch Agent. Otherwise use AppleScript
   //           to add Login Item
+  //      :linux - (Optional) {Object}
+  //          :icon - (Optional) {String} Icon path or name for the desktop entry. Defaults to app name if not specified.
   //      :extraArguments - (Optional) {Array}
   constructor(init) {
     this.appName = init.appName;

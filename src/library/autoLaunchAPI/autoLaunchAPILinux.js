@@ -11,6 +11,7 @@ Version=1.0
 Name={{APP_NAME}}
 Comment={{APP_NAME}} startup script
 Exec={{APP_PATH}} {{ARGS}}
+Icon={{Icon}}
 StartupNotify=false
 Terminal=false
 `;
@@ -27,6 +28,7 @@ export default class AutoLaunchAPILinux extends AutoLaunchAPI {
   enable() {
     const hiddenArg = this.options.launchInBackground;
     const extraArgs = this.options.extraArguments;
+    const iconPath = this.options.linux?.icon || this.appName;
     const programArguments = [];
 
     // Manage arguments
@@ -41,7 +43,8 @@ export default class AutoLaunchAPILinux extends AutoLaunchAPI {
     const desktop = LINUX_DESKTOP.trim()
       .replace(/{{APP_NAME}}/g, this.appName)
       .replace(/{{APP_PATH}}/g, this.appPath)
-      .replace(/{{ARGS}}/g, args);
+      .replace(/{{ARGS}}/g, args)
+      .replace(/{{Icon}}/g, iconPath);
 
     return fileBasedUtilities.createFile({
       directory: this.#getAutostartDirectory(),

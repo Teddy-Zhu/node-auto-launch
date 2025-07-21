@@ -75,6 +75,14 @@ For Mac-only options.
 
 By default, we use AppleScript to add a Login Item. If this is `true`, we use a Launch Agent to auto-launch your app. Defaults to `false`. For more information, see [How does it work? (mac)](#mac) below.
 
+**`options.linux`** (Optional) object
+
+For Linux-only options.
+
+**`options.linux.icon`** (optional) String.
+
+The icon path or name for the desktop entry. Can be an absolute path to an icon file, or just the icon name (which will be looked up in the system icon theme). If not specified, defaults to the app name. For more information, see [How does it work? (Linux)](#linux--freebsd) below.
+
 
 ### `.enable`
 
