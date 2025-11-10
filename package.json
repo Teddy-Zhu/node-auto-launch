@@ -1,6 +1,6 @@
 {
   "name": "@teddyzhu/auto-launch",
-  "version": "6.0.0-rc.9",
+  "version": "6.0.0",
   "description": "Launch node applications or executables at login (Mac, Windows, Linux and FreeBSD)",
   "type": "module",
   "main": "./src/index.js",
