@@ -1,31 +1,85 @@
-name: npm publish
+name: Release
+
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  build:
+  metadata:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      npm_tag: ${{ steps.release.outputs.npm_tag }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v3
-      - id: get-nvmrc
-        run: echo VERSION=$(cat .nvmrc) >> $GITHUB_OUTPUT
-      - id: get-tag
-        run: |
-          if [[ $GITHUB_REF =~ [0-9]+.[0-9]+.[0-9]+$ ]]; then
-              echo TAG=latest >> $GITHUB_OUTPUT
-          else
-              echo TAG=beta >> $GITHUB_OUTPUT
-          fi
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - id: release
+        run: node scripts/release-metadata.js
+
+  check:
+    needs: metadata
+    uses: ./.github/workflows/ci.yaml
+
+  publish:
+    needs: [metadata, check]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
           registry-url: https://registry.npmjs.org
-          node-version: ${{ steps.get-nvmrc.outputs.VERSION }}
+          package-manager-cache: false
+      - name: Install npm with Trusted Publishing support
+        run: npm install --global npm@12
       - run: npm ci
+      - name: Build and pack
+        run: npm pack
+      - name: Save release package
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-package-${{ needs.metadata.outputs.version }}
+          path: '*.tgz'
+          if-no-files-found: error
+      - name: Publish with npm Trusted Publishing
+        run: npm publish ./*.tgz --access public --tag "$NPM_TAG"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_REGISTRY_KEY }}
-      - run: npm run test
-      - run: npm run build
-      - run: npm version ${{ github.event.release.tag_name }} --no-git-tag-version
-      - run: npm publish --tag ${{ steps.get-tag.outputs.TAG }}
+          NPM_TAG: ${{ needs.metadata.outputs.npm_tag }}
+
+  release:
+    needs: [metadata, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: npm-package-${{ needs.metadata.outputs.version }}
+      - name: Create GitHub Release
+        shell: bash
+        run: |
+          flags=()
+          if [[ "$PRERELEASE" == "true" ]]; then
+            flags+=(--prerelease --latest=false)
+          fi
+          gh release create "$RELEASE_TAG" ./*.tgz \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --generate-notes "${flags[@]}"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_REGISTRY_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}

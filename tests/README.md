@@ -1,13 +1,7 @@
-This is where the tests live. The same tests are ran no matter which platform you're on, but the executable is different. We've one per platform in the [executables](executables/) directory (except a system one is used for Mac).
+# Tests
 
-Our tests could be improved.
+`npm test` runs Mocha tests using Node's assertions and mocks. Tests cover option validation, platform command / file generation, registration lifecycle, error propagation and release metadata. Files are isolated in temporary directories; native AppleScript and registry operations are stubbed. No executable fixtures or real startup registrations are needed.
 
-- They don't test anything.
-- We don't check or enforce code coverage.
-- We don't use a mocking / spec framework like [Sinon.js](http://sinonjs.org/).
+After `npm run build`, run `npm run test:package` to pack the existing build, check archive contents, install it into a temporary consumer project and verify both public ESM and CommonJS imports. It installs runtime dependencies from npm and cleans up the temporary project afterwards.
 
----
-
-# Would you like to contribute?
-
-We're always open to your help and feedback. See our [CONTRIBUTING.md](../CONTRIBUTING.md).
+These checks do not verify actual login behavior on macOS, Windows or individual desktop environments.

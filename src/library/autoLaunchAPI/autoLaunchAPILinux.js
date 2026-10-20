@@ -1,94 +1,51 @@
+import { homedir } from 'node:os';
 import path from 'node:path';
-import untildify from 'untildify';
 import * as fileBasedUtilities from '../fileBasedUtilities.js';
 import AutoLaunchAPI from './autoLaunchAPI.js';
 
-const LINUX_AUTOSTART_DIR = '~/.config/autostart';
-const LINUX_DESKTOP = `
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name={{APP_NAME}}
-Comment={{APP_NAME}} startup script
-Exec={{APP_PATH}} {{ARGS}}
-Icon={{Icon}}
-StartupNotify=false
-Terminal=false
-`;
-
 export default class AutoLaunchAPILinux extends AutoLaunchAPI {
-  /* Public */
-
   constructor(init) {
     super(init);
-    this.appPath = this.#fixAppPath();
+    // AppImage mount paths change between launches; persist the original image path.
+    this.appPath = process.env.APPIMAGE || this.appPath;
   }
 
-  // Returns a Promise
   enable() {
-    const hiddenArg = this.options.launchInBackground;
-    const extraArgs = this.options.extraArguments;
-    const iconPath = this.options.linux?.icon || this.appName;
-    const programArguments = [];
-
-    // Manage arguments
-    if (hiddenArg) {
-      programArguments.push((hiddenArg !== true) ? hiddenArg : '--hidden');
-    }
-    if (extraArgs) {
-      programArguments.push(extraArgs);
-    }
-    const args = programArguments.join(' ');
-
-    const desktop = LINUX_DESKTOP.trim()
-      .replace(/{{APP_NAME}}/g, this.appName)
-      .replace(/{{APP_PATH}}/g, this.appPath)
-      .replace(/{{ARGS}}/g, args)
-      .replace(/{{Icon}}/g, iconPath);
+    const { escapeDesktopValue, escapeFilePath } = fileBasedUtilities;
+    const desktop = [
+      '[Desktop Entry]',
+      'Type=Application',
+      `Name=${escapeDesktopValue(this.appName)}`,
+      `Comment=${escapeDesktopValue(`${this.appName} startup script`)}`,
+      `Exec=${[this.appPath, ...this.launchArguments].map(escapeFilePath).join(' ')}`,
+      `Icon=${escapeDesktopValue(this.options.linux.icon || this.appName)}`,
+      'StartupNotify=false',
+      'Terminal=false',
+      ''
+    ].join('\n');
 
     return fileBasedUtilities.createFile({
       directory: this.#getAutostartDirectory(),
-      filePath: this.#getDesktopFilePath(this.appName),
+      filePath: this.#getDesktopFilePath(),
       data: desktop
     });
   }
 
-  // Returns a Promise
   disable() {
     return fileBasedUtilities.removeFile(this.#getDesktopFilePath());
   }
 
-  // Returns a Promise which resolves to a {Boolean}
   isEnabled() {
     return fileBasedUtilities.fileExists(this.#getDesktopFilePath());
   }
 
-  /* Private */
-
-  // Returns a {String}
   #getAutostartDirectory() {
-    return untildify(LINUX_AUTOSTART_DIR);
+    const configHome = process.env.XDG_CONFIG_HOME;
+    const directory = configHome && path.isAbsolute(configHome) ? configHome : path.join(homedir(), '.config');
+    return path.join(directory, 'autostart');
   }
 
-  // Returns a {String}
   #getDesktopFilePath() {
     return path.join(this.#getAutostartDirectory(), `${this.appName}.desktop`);
-  }
-
-  // Returns a {String}
-  #fixAppPath() {
-    let execPath = this.appPath;
-
-    // If this is an AppImage, the actual AppImage's file path must be used, otherwise the mount path will be used.
-    // This will fail on the next launch, since AppImages are mount temporarily when executed
-    // in an everchanging mount folder.
-    if (process.env?.APPIMAGE != null) {
-      execPath = process.env.APPIMAGE;
-    }
-
-    // As stated in the .desktop entry spec, Exec key's value must be properly escaped with reserved characters.
-    execPath = fileBasedUtilities.escapeFilePath(execPath);
-
-    return execPath;
   }
 }

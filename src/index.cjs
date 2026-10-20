@@ -1,4 +1,4 @@
-const { default: AutoLaunch } = await import('./index.js');
+const { default: AutoLaunch } = require('./index.js');
 
 module.exports = AutoLaunch;
 module.exports.default = AutoLaunch;

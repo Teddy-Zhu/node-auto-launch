@@ -1,40 +1,64 @@
-# Open to improvements
+# Development
 
-Feel free to submit pull-requests or suggestions via issues to improve this process, any document, or any of the code. Your help is appreciated.
+Use Node.js 24 (`nvm use`) and install the locked dependencies:
 
+```sh
+npm ci
+```
 
-# Guidelines
+Source code uses native JavaScript ES modules. No Babel, CoffeeScript or Gulp compilation is required.
 
-- Everything in CoffeeScript.
-- Try to follow the code style in the script you're editing or surrounding scripts.
-- Use [Biscotto](https://github.com/gjtorikian/biscotto) style comments on classes, methods, etc.
-- Take care that this module supports Windows, Mac, and Linux, NW.js and Electron, with or without Squirrel (auto-updating).
-- Be nice.
+`winreg` remains pinned to 1.2.4: version 1.2.5 invokes registry writes with `shell: true`, which changes command quoting and allows shell interpretation of application names and arguments. Do not update it without addressing that behavior and checking native Windows registration.
 
+npm 12 requires approval for dependency install scripts. `allowScripts` approves the locked esbuild version; review and update that approval with `npm approve-scripts esbuild` when changing esbuild versions.
 
-# Setup
+After completing changes, run the checks together:
 
-1. `npm install -g gulp`
-2. `npm install`
-3. Install the [EditorConfig](http://editorconfig.org) plugin for your IDE / text-editor.
+```sh
+npm run lint
+npm test
+npm run build
+npm run test:package
+```
 
+Tests isolate file registrations in temporary directories and stub native Windows / AppleScript operations. They do not launch applications or change the real user's login settings. Native platform behavior still requires testing on the corresponding operating system.
 
-# Compilation
+# Build and package
 
-1. `gulp`
+`npm run build` clears `dist` and uses esbuild to produce:
 
+- `dist/index.js`: ESM bundle.
+- `dist/index.cjs`: CommonJS bundle exporting the constructor directly.
+- Matching `.map` files with embedded source content for debugging.
 
-# Running tests
+Node built-ins and runtime dependencies remain external. Both bundles target Node.js 22.14.0. Package exports point to these files; source files, test fixtures and development configuration are excluded from the npm archive. The published package contains `dist/`, `package.json`, `README.md` and `LICENSE.md`.
 
-(No need to compile first)
+`npm pack` automatically builds through `prepack`. `npm run test:package` checks the existing build, package contents and both public module entry points without rebuilding it.
 
-1. `npm test`
+# Automated releases
 
+Run CI manually from GitHub Actions using **Run workflow**. Branch pushes and pull requests do not trigger it. It checks Linux, macOS and Windows with Node.js 22, 24 and 26. The release workflow invokes the same CI before publishing a version tag.
 
-# Publishing a new version
+Configure the package's **Settings → Trusted Publisher → GitHub Actions** on npmjs.com once:
 
-1. Tests must pass. I.e. Travis and AppVeyor builds should have successfully ran for the last commit. It would be good if you ran the tests locally too to be safe, especially on Mac as we don't have a service like Travis or AppVeyor to run them on, and because we have Mac-only options.
-2. Manually bump version in `package.json`.
-3. Publish new version to npm.
-4. Commit & push version bump as `{{new_version}}`.
-5. Publish GitHub release.
+| Field | Value |
+| --- | --- |
+| Organization or user | `Teddy-Zhu` |
+| Repository | `node-auto-launch` |
+| Workflow filename | `publish.yaml` |
+| Environment name | Leave empty; the workflow does not select an environment. |
+| Allowed actions | Enable direct publishing with `npm publish`. |
+
+The npm package must already exist and you must have permission to manage it. For a new package, publish the initial version manually before configuring its trusted publisher. See the [npm Trusted Publishing documentation](https://docs.npmjs.com/trusted-publishers/) for current requirements.
+
+The workflow uses GitHub-hosted runners, Node.js 24, npm 12 and `id-token: write`. npm authenticates with OIDC and generates provenance automatically. No `NPM_TOKEN`, `NODE_AUTH_TOKEN` or `NPM_REGISTRY_KEY` secret is required. GitHub Release creation uses the workflow's `GITHUB_TOKEN`; repository policy must allow its `contents: write` permission.
+
+To release:
+
+1. Update `package.json` and `package-lock.json` to the intended version, for example with `npm version 6.0.0-rc.11 --no-git-tag-version`.
+2. Commit the change and push it to GitHub.
+3. Create and push the matching version tag, for example `git tag v6.0.0-rc.11` followed by `git push origin v6.0.0-rc.11`.
+
+The tag must exactly match `v` plus the manifest version; a stale lockfile or mismatched tag stops the workflow. Stable versions publish to npm's `latest` tag. Prereleases publish to `next` and create a prerelease on GitHub. After CI passes, `npm pack` builds one archive, which is saved as a workflow artifact, published to npm and attached unchanged to the GitHub Release. Creating a GitHub Release manually does not publish to npm.
+
+If GitHub Release creation fails after npm publication, rerun only the failed release job; published npm versions cannot be overwritten.

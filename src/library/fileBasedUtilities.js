@@ -1,68 +1,35 @@
-import fs from 'fs';
+import { mkdir, stat, unlink, writeFile } from 'node:fs/promises';
 
-// Public: a few utils for file-based auto-launching
-
-// This is essentially enabling auto-launching
-// options - {Object}
-//   :directory - {String}
-//   :filePath - {String}
-//   :data - {String}
-// Returns a Promise
-export function createFile({ directory, filePath, data }) {
-  return new Promise((resolve, reject) => {
-    fs.mkdir(directory, { recursive: true }, (mkdirErr) => {
-      if (mkdirErr != null) {
-        return reject(mkdirErr);
-      }
-      return fs.writeFile(filePath, data, (writeErr) => {
-        if (writeErr != null) {
-          return reject(writeErr);
-        }
-        return resolve();
-      });
-    });
-  });
+export async function createFile({ directory, filePath, data }) {
+  await mkdir(directory, { recursive: true });
+  await writeFile(filePath, data, 'utf8');
 }
 
-// Verify auto-launch file exists or not
-// filePath - {String}
-// Returns a Promise
-export function fileExists(filePath) {
-  return new Promise((resolve) => {
-    fs.stat(filePath, (err, stat) => {
-      if (err != null) {
-        return resolve(false);
-      }
-      return resolve(stat != null);
-    });
-  });
+export async function fileExists(filePath) {
+  try {
+    return (await stat(filePath)).isFile();
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
 }
 
-// This is essentially disabling auto-launching
-// filePath - {String}
-// Returns a Promise
-export function removeFile(filePath) {
-  return new Promise((resolve, reject) => {
-    fs.stat(filePath, (statErr) => {
-      // If it doesn't exist, this is good so resolve
-      if (statErr != null) {
-        return resolve();
-      }
-
-      return fs.unlink(filePath, (unlinkErr) => {
-        if (unlinkErr != null) {
-          return reject(unlinkErr);
-        }
-        return resolve();
-      });
-    });
-  });
+export async function removeFile(filePath) {
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
 }
 
-// Escape reserved characters in path
-// filePath - {String}
-// Returns {String}
-export function escapeFilePath(filePath) {
-  return filePath.replace(/(\s+)/g, '\\$1');
-  //    return filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // https://github.com/tc39/proposal-regex-escaping
+export function escapeDesktopValue(value) {
+  return value.replace(/[\\\n\r\t]/g, (character) => ({
+    '\\': '\\\\', '\n': '\\n', '\r': '\\r', '\t': '\\t'
+  })[character]).replace(/^ +| +$/g, (spaces) => '\\s'.repeat(spaces.length));
+}
+
+export function escapeFilePath(value) {
+  // Exec quoting is applied before the Desktop Entry string escaping layer.
+  const quoted = `"${value.replace(/%/g, '%%').replace(/["`$\\]/g, '\\$&')}"`;
+  return escapeDesktopValue(quoted);
 }

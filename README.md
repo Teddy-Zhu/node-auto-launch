@@ -1,184 +1,84 @@
-node-auto-launch
-==============
+# @teddyzhu/auto-launch
 
-[![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url] [![Windows Build Status][appveyor-image]][appveyor-url] [![Dependency Status][depstat-image]][depstat-url]
+[![npm](https://img.shields.io/npm/v/@teddyzhu/auto-launch)](https://www.npmjs.com/package/@teddyzhu/auto-launch)
+[![CI](https://github.com/Teddy-Zhu/node-auto-launch/actions/workflows/ci.yaml/badge.svg)](https://github.com/Teddy-Zhu/node-auto-launch/actions/workflows/ci.yaml)
 
----
+Launch applications at user login on Windows, macOS, Linux and FreeBSD. This registers a user login startup entry; it does not install a system boot service.
 
-Auto-launch your app on login.
-
-- :star: Launch any application or executable at startup / login / boot.
-- :star: Supports Linux, FreeBSD, Mac (via AppleScript or Launch Agent), and Windows.
-- :star: Supports [NW.js](http://nwjs.io/) and [Electron](http://electron.atom.io/) (with or without Squirrel; i.e. even if you're using Electron's built-in [`autoUpdater`](http://electron.atom.io/docs/api/auto-updater/) API).
-- :star: Auto-detects your app path for NW.js and Electron apps.
-- :star: Supports NW.js and Electron apps in Windows Store (with some caveats). 
-- :disappointed: Not Mac App Store friendly. See [Make this Mac App Store compatible](https://github.com/Teamwork/node-auto-launch/issues/43) for more information.
-
-
-## Usage
-
-```javascript
-var AutoLaunch = require('auto-launch');
-
-var minecraftAutoLauncher = new AutoLaunch({
-	name: 'Minecraft',
-	path: '/Applications/Minecraft.app',
-});
-
-minecraftAutoLauncher.enable();
-
-//minecraftAutoLauncher.disable();
-
-
-minecraftAutoLauncher.isEnabled()
-.then(function(isEnabled){
-	if(isEnabled){
-	    return;
-	}
-	minecraftAutoLauncher.enable();
-})
-.catch(function(err){
-    // handle error
-});
-```
+Requires **Node.js 22.14.0 or later**, including the Node.js runtime embedded in Electron or NW.js.
 
 ## Installation
 
-`npm install --save auto-launch`
+```sh
+npm install @teddyzhu/auto-launch
+```
 
+## Usage
+
+```js
+import AutoLaunch from '@teddyzhu/auto-launch';
+
+const launcher = new AutoLaunch({
+  name: 'My App',
+  path: '/absolute/path/to/my-app',
+  options: {
+    launchInBackground: true,
+    extraArguments: ['--profile', 'work profile'],
+    mac: { useLaunchAgent: true },
+    linux: { icon: 'my-app' }
+  }
+});
+
+if (!await launcher.isEnabled()) {
+  await launcher.enable();
+}
+
+// await launcher.disable();
+```
+
+CommonJS is also supported, with the same constructor and Promise-based methods:
+
+```js
+const AutoLaunch = require('@teddyzhu/auto-launch');
+```
 
 ## API
 
-### `new AutoLaunch(options)`
+`new AutoLaunch({ name, path, options })` validates its arguments synchronously.
 
-**`options`** - Object
+| Property | Type | Behavior |
+| --- | --- | --- |
+| `name` | string | Required, nonblank name. Path separators and control characters are not allowed. |
+| `path` | string | Absolute application or executable path. Defaults to `process.execPath` only in Electron or NW.js. |
+| `options.launchInBackground` | boolean or string | Defaults to `false`. `true` passes `--hidden`; a string specifies a custom argument. AppleScript Login Items use only the hidden flag. |
+| `options.extraArguments` | string[] | Additional arguments, preserved as separate arguments. Defaults to `[]`. `options.extraArgs` is also accepted. |
+| `options.mac.useLaunchAgent` | boolean | Defaults to `false` (AppleScript Login Item). Set to `true` to use a Launch Agent and pass extra arguments. |
+| `options.linux.icon` | string | Desktop icon name or absolute icon path. Defaults to `name`. |
 
-**`options.name`** - String
+`enable()`, `disable()` and `isEnabled()` return Promises. `isEnabled()` resolves to a boolean indicating whether the registration exists. The operating system or desktop environment may independently restrict startup execution. Errors from registration operations reject their Promises.
 
-The name of your app.
-
-**`options.path`** - String (optional for NW.js and Electron apps)
-
-The absolute path to your app.
-
-For NW.js and Electron apps, you don't have to specify the path. We guess based on `process.execPath`.
-
-**`options.isHidden`** - (Optional) Boolean
-
-If `true`, we instruct the operating system to launch your app in hidden mode when launching at login. Defaults to `false`.
-
-**`options.mac`** (Optional) object
-
-For Mac-only options.
-
-**`options.mac.useLaunchAgent`** (optional) Boolean.
-
-By default, we use AppleScript to add a Login Item. If this is `true`, we use a Launch Agent to auto-launch your app. Defaults to `false`. For more information, see [How does it work? (mac)](#mac) below.
-
-**`options.linux`** (Optional) object
-
-For Linux-only options.
-
-**`options.linux.icon`** (optional) String.
-
-The icon path or name for the desktop entry. Can be an absolute path to an icon file, or just the icon name (which will be looked up in the system icon theme). If not specified, defaults to the app name. For more information, see [How does it work? (Linux)](#linux--freebsd) below.
-
-
-### `.enable`
-
-Sets your app to auto-launch at startup. Returns a Promise.
-
-
-### `.disable`
-
-Disables your app from auto-launching at startup. Returns a Promise.
-
-
-### `.isEnabled()`
-
-Returns a Promise which resolves to a Boolean; `true` if your app is set to launch on startup.
-
-
-## How does it work?
+## Platform behavior
 
 ### Linux / FreeBSD
 
-A [Desktop Entry](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html) is created; i.e. a `.desktop` file is created in `~/.config/autostart/`.
+Writes a `.desktop` file under `$XDG_CONFIG_HOME/autostart`, or `~/.config/autostart` when that variable is unset or is not absolute. Paths and arguments are escaped according to the [Desktop Entry specification](https://specifications.freedesktop.org/desktop-entry/latest/exec-variables.html). AppImage applications use the `APPIMAGE` environment variable to avoid persisting a temporary mount path. Requires a desktop session that implements XDG autostart.
 
-Note: if auto-launch is enabled and then your app is removed, this desktop entry file would be left behind on the user's machine.
+### macOS
 
+By default, AppleScript asks System Events to manage a Login Item. macOS may request Automation permission. Login Items cannot carry extra arguments; use `options.mac.useLaunchAgent` when arguments are needed.
 
-### Mac
+Launch Agents use `~/Library/LaunchAgents/<name>.plist`. Pass an executable path to launch it directly; `.app` bundles are launched with `/usr/bin/open`. Registration takes effect at the next login. These mechanisms are not a sandboxed Mac App Store integration. Native applications requiring modern macOS service management should use [SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice) or their framework's corresponding API.
 
-#### AppleScript (default)
-
-We execute an AppleScript command to instruct `System Events` to add or remove a Login Item for your app. There are no files involved. To see your Login Items, you can go to *System Preferences*, *Users & Groups*, then *Login Items*. End users can add or disable items (including your app) here also, but most typical users aren't aware of it.
-
-![Login Items screenshot](images/loginItemsScreenshot.png)
-
-Note: This is not Mac App Store friendly; if you use it in your app, it will be rejected by the Mac App Store. We're only 99% sure on this as we haven't actually tried ourselves. See [Make this Mac App Store compatible](https://github.com/Teamwork/node-auto-launch/issues/43) for more information.
-
-
-#### Launch Agent
-
-This is a file-based method like Linux's Desktop Entry method. We add a `.plist` file in the user's `Library/LaunchAgents` directory to create a [Launch Agent](https://developer.apple.com/library/content/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html) for your app.
-
-**Pros**
-
-- Launch Agents are intended for daemons / something without UI, which might be applicable depending on your app.
-- We *think* this method *seems* to be faster, as in to enable or disable auto-launching (there is no difference in the amount of time it takes your app to launch). Although, that's not really a concern.
-- You might not trust AppleScript.
-
-**Cons**
-
-- Your app will not appear in the user's Login Items. Therefore the user can only toggle auto-launching inside your app, if you provide them with a setting of course (which you should!). This is not a huge deal as most users are not aware of Login Items preferences, but it would be ideal if your app appeared there.
-- If the user was to remove your app, the file would be left behind on the user's machine.
-
-If you find that the AppleScript method doesn't work for you and this method does, please let us know by [creating an issue](https://github.com/Teamwork/node-auto-launch/issues/new).
-
-Note: This is not Mac App Store friendly; if you use it in your app, it will be rejected by the Mac App Store as this reaches outside of the app sandbox. See [Make this Mac App Store compatible](https://github.com/Teamwork/node-auto-launch/issues/43) for more information.
-
+The supplied `name` is now used consistently on all platforms. Older versions derived macOS registration names from the executable filename. Disable those entries with the previous version before upgrading, if applicable.
 
 ### Windows
 
-We add a registry entry under `\HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`.
+Stores a command under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`. Electron applications installed using Squirrel.Windows use the adjacent `Update.exe` so startup follows application updates.
 
-Note: If the user was to remove your app, this would be left in the registry, but that's not such a big deal. You can probably configure your uninstaller to unset it.
+For Microsoft Store applications (`process.windowsStore`), pass the application identity, such as `DEV_ID.APP_ID!PACKAGE_NAME`, as `path`. It is launched through `explorer.exe` and `shell:AppsFolder`.
 
+Uninstallers should call `disable()` to remove the startup registration.
 
-#### Squirrel.Windows
+## Development and releases
 
-If you're using [Squirrel.Windows](https://github.com/Squirrel/Squirrel.Windows), i.e. what's underneath Electron's built-in [`autoUpdater`](http://electron.atom.io/docs/api/auto-updater/) API on Windows, we add a registry entry for your app's `Update.exe` instead of your actual application. This is due to how Squirrel.Windows works under the hood. What if we didn't? Well, if the user started / restarted their machine after updating your app, it would launch the old version by mistake.
-
-#### Windows App Store apps
-
-If you have your Electron-based app in the Windows Store and would like to include auto launch functionality, simply linking to the executable path will not work. The Appx packages required for Electron are sandboxed and the install location can only be accessed by the system itself.
-
-There is a way to bypass that - it will require you to know the developer ID, app ID and package name of your app. Then, instead of using the exec path, you will need to set the path in `AutoLaunch()` config to: `explorer.exe shell:AppsFolder\DEV_ID.APP_ID!PACKAGE_NAME`. One of the way you can find your apps details is by following [this article](http://winaero.com/blog/exclusive-how-to-start-a-modern-app-from-desktop-without-going-to-the-metro-start-screen/). Note that you might need to compile and submit your app to the store first to obtain these details.
-
-If you've already submitted your app, you may use the follow steps to find the path:
- - Install a beta version on your Windows device from Microsoft Store
- - Go to Windows apps folder: press `Win+R` and type `shell:AppsFolder`
- - Right-click and create shortcut on Desktop
- - Right click on the shortcut and check properties
- - Find *target* field and copy the content. That will be the auto-launch path
-
-Example: `new autoLaunch({  name: 'APP_NAME', path:"DEV_ID.APP_ID!PACKAGE_NAME", isHidden: true })`
-
-
-# Would you like to contribute?
-
-We're always open to your help and feedback. See our [CONTRIBUTING.md](CONTRIBUTING.md).
-
-
-[npm-url]: https://npmjs.org/package/auto-launch
-[npm-image]: http://img.shields.io/npm/v/auto-launch.svg?style=flat
-
-[appveyor-url]: https://ci.appveyor.com/project/adam-lynch/node-auto-launch/branch/master
-[appveyor-image]: https://ci.appveyor.com/api/projects/status/0sraxp65vrj2axc3/branch/master?svg=true
-
-[travis-url]: http://travis-ci.org/Teamwork/node-auto-launch
-[travis-image]: http://img.shields.io/travis/Teamwork/node-auto-launch.svg?style=flat
-
-[depstat-url]: https://david-dm.org/teamwork/node-auto-launch
-[depstat-image]: https://david-dm.org/teamwork/node-auto-launch.svg?style=flat
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build outputs, validation and GitHub Actions / npm Trusted Publisher setup.

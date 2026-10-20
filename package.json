@@ -1,32 +1,29 @@
 {
   "name": "@teddyzhu/auto-launch",
-  "version": "6.0.0",
+  "version": "6.0.1",
   "description": "Launch node applications or executables at login (Mac, Windows, Linux and FreeBSD)",
   "type": "module",
-  "main": "./src/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "exports": {
     ".": {
-      "import": "./src/index.js",
-      "require": "./src/index.cjs"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
-    "src/**/*",
-    "README.md",
-    "LICENSE.md"
+    "dist/"
   ],
   "scripts": {
-    "lint": "eslint --ext .js src tests",
-    "lint:fix": "eslint --ext .js src tests --fix",
-    "test": "mocha tests/test.js --reporter spec"
-  },
-  "pre-commit": {
-    "run": [
-      "test"
-    ]
+    "build": "node scripts/build.js",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "test": "mocha tests/test.js --reporter spec",
+    "test:package": "node tests/package.js",
+    "prepack": "npm run build"
   },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=22.14.0"
   },
   "repository": {
     "type": "git",
@@ -51,23 +48,20 @@
     "url": "https://github.com/Teddy-Zhu/node-auto-launch/issues"
   },
   "devDependencies": {
-    "@babel/cli": "^7.23.4",
-    "@babel/core": "^7.23.6",
-    "@babel/eslint-parser": "^7.23.0",
-    "@babel/preset-env": "^7.23.6",
-    "chai": "^4.3.0",
-    "eslint": "^8.55.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.29.0",
-    "mocha": "^10.2.0",
-    "rimraf": "^5.0.5"
+    "@eslint/js": "^10.0.1",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "mocha": "^12.0.3"
   },
   "dependencies": {
     "applescript": "^1.0.0",
-    "untildify": "^5.0.0",
     "winreg": "1.2.4"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
   }
 }
