@@ -59,6 +59,8 @@ To release:
 2. Commit the change and push it to GitHub.
 3. Create and push the matching version tag, for example `git tag v6.0.0-rc.11` followed by `git push origin v6.0.0-rc.11`.
 
+Pushing the tag starts Release automatically. To start it manually for an existing tag, open **Actions → Release → Run workflow**, select the branch containing this workflow, and enter the version tag in **tag**, for example `v6.0.1`. The tag must include the current release scripts. Validation, CI and packaging all use the tagged commit. The workflow must be pushed to the repository's default branch before the manual entry is available; see [GitHub's manual workflow documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
 The tag must exactly match `v` plus the manifest version; a stale lockfile or mismatched tag stops the workflow. Stable versions publish to npm's `latest` tag. Prereleases publish to `next` and create a prerelease on GitHub. After CI passes, `npm pack` builds one archive, which is saved as a workflow artifact, published to npm and attached unchanged to the GitHub Release. Creating a GitHub Release manually does not publish to npm.
 
 If GitHub Release creation fails after npm publication, rerun only the failed release job; published npm versions cannot be overwritten.

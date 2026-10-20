@@ -1,6 +1,12 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to release (for example, v6.0.1)'
+        required: true
+        type: string
   push:
     tags: ['v*']
 
@@ -8,28 +14,37 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   metadata:
     runs-on: ubuntu-latest
     outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.checkout.outputs.commit }}
       version: ${{ steps.release.outputs.version }}
       npm_tag: ${{ steps.release.outputs.npm_tag }}
       prerelease: ${{ steps.release.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v7
+        id: checkout
+        with:
+          ref: refs/tags/${{ inputs.tag || github.ref_name }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           package-manager-cache: false
       - id: release
         run: node scripts/release-metadata.js
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
   check:
     needs: metadata
     uses: ./.github/workflows/ci.yaml
+    with:
+      ref: ${{ needs.metadata.outputs.sha }}
 
   publish:
     needs: [metadata, check]
@@ -39,6 +54,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.metadata.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -81,5 +98,5 @@ jobs:
             --verify-tag --generate-notes "${flags[@]}"
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.metadata.outputs.tag }}
           PRERELEASE: ${{ needs.metadata.outputs.prerelease }}

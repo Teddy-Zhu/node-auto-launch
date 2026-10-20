@@ -283,17 +283,26 @@ describe('Windows registrations', () => {
 });
 
 describe('Release metadata', () => {
-  it('uses matching version tags and rejects tag / manifest mismatches', async () => {
+  it('uses the release tag for manual and tag triggers and rejects mismatches', async () => {
     const manifest = JSON.parse(await fsp.readFile(new URL('../package.json', import.meta.url), 'utf8'));
     const output = path.join(directory, 'github-output');
     const script = fileURLToPath(new URL('../scripts/release-metadata.js', import.meta.url));
-    const env = { ...process.env, GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: `v${manifest.version}`, GITHUB_OUTPUT: output };
-    execFileSync(process.execPath, [script], { env, stdio: 'pipe' });
+    const env = { ...process.env, RELEASE_TAG: `v${manifest.version}`, GITHUB_OUTPUT: output };
+    for (const ref of [
+      { GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'main' },
+      { GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: env.RELEASE_TAG }
+    ]) {
+      execFileSync(process.execPath, [script], { env: { ...env, ...ref }, stdio: 'pipe' });
+    }
     const result = await fsp.readFile(output, 'utf8');
+    assert.ok(result.includes(`tag=${env.RELEASE_TAG}\n`));
     assert.ok(result.includes(`version=${manifest.version}\n`));
     assert.ok(result.includes(`npm_tag=${manifest.version.includes('-') ? 'next' : 'latest'}\n`));
     assert.throws(() => execFileSync(process.execPath, [script], {
-      env: { ...env, GITHUB_REF_NAME: 'v0.0.0-invalid' }, stdio: 'pipe'
+      env: { ...env, RELEASE_TAG: 'v0.0.0-invalid' }, stdio: 'pipe'
+    }), /Release tag must match/);
+    assert.throws(() => execFileSync(process.execPath, [script], {
+      env: { ...env, RELEASE_TAG: '' }, stdio: 'pipe'
     }), /Release tag must match/);
   });
 });
